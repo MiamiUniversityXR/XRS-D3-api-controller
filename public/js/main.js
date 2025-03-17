@@ -1,8 +1,10 @@
 let url = "0.0.0.0"; //d3 server address pulled and set from data 
 let transports = [];
-let port = 3002;
+let port = 80;
 let StoredDataByTime = [];
 let show;
+//let renderCheck = false; //should prevent multirendering from async
+
 const filters = {
     section: true,
     note: true,
@@ -11,10 +13,64 @@ const filters = {
     midi: true,
 }
 
+
+function setCookie(name, value, length) {
+    //using this to store filter data between sessions
+    const d = new Date();
+    d.setTime(d.getTime() + (length*24*60*60*1000));
+    let expires = "expires="+ d.toUTCString();
+    document.cookie = name + "=" + JSON.stringify(value) + ";" + expires + ";path=/";
+}
+
+function getCookie(cname) {
+    let name = cname + "=";
+    let decodedCookie = decodeURIComponent(document.cookie);
+    let ca = decodedCookie.split(';');
+    for(let i = 0; i <ca.length; i++) {
+      let c = ca[i];
+      while (c.charAt(0) == ' ') {
+        c = c.substring(1);
+      }
+      if (c.indexOf(name) == 0) {
+        return c.substring(name.length, c.length);
+      }
+    }
+    return "";
+  }
+
+  function setFilterFromCookie(cfilter){
+    filters.section = cfilter.section
+    filters.note = cfilter.note
+    filters.cue = cfilter.cue
+    filters.tc = cfilter.tc
+    filters.midi = cfilter.midi
+    
+    if(filters.section == false) {
+        document.querySelector('#SectionsFilter').classList.toggle('enabled')
+        document.querySelector('#SectionsFilter').classList.toggle('disabled')
+    }
+    if(filters.note == false) {
+        document.querySelector('#NotesFilter').classList.toggle('enabled')
+        document.querySelector('#NotesFilter').classList.toggle('disabled')
+    }
+    if(filters.cue == false) {
+        document.querySelector('#CueFilter').classList.toggle('enabled')
+        document.querySelector('#CueFilter').classList.toggle('disabled')
+    }
+    if(filters.tc == false) {
+        document.querySelector('#TCFilter').classList.toggle('enabled')
+        document.querySelector('#TCFilter').classList.toggle('disabled')
+    }
+    if(filters.midi == false) {
+        document.querySelector('#MIDIFilter').classList.toggle('enabled')
+        document.querySelector('#MIDIFilter').classList.toggle('disabled')
+    }
+  }
+
 async function getTransports(){
     title = await fetchAsync("http://" + url + "/api/session/status/project");
     data = await fetchAsync("http://" + url + "/api/session/transport/activetransport");
-    console.log(data);
+    //console.log(data);
     for(res of data.result){
         const transport = {
             type: "",
@@ -32,7 +88,7 @@ async function getTransports(){
         transport.track.uid = res.currentTrack.uid;
         transport.track.name = res.currentTrack.name;
         transport.uid = res.uid;
-        console.log(transport)
+        //console.log(transport)
         tindex = transports.findIndex(t => t.uid == transport.uid)
         if(tindex != -1){
             Object.assign(transports[tindex], transport)
@@ -41,7 +97,7 @@ async function getTransports(){
         }
     }
     document.querySelector('#projectName').innerHTML = title.result.projectPath.split('\\')[0]
-    buildNotations(transports);
+    //buildNotations(transports);
     return transports
     
 }
@@ -50,11 +106,21 @@ async function startup(){
     await getIP();
     try{
         transports = await getTransports();
+        
     }catch{
         alert("Error connecting to the d3 server. Check that the project is running and that you've set the correct IP and try again")
     }
-    //show = await getShow();
+    enableTransports();
+    buildNotations(transports);
+    try{
+        setFilterFromCookie(JSON.parse(getCookie('filters')))
+    }catch{
+        console.log('failed to set')
+    }
+    
 }
+
+
 
 startup();
 
@@ -101,8 +167,10 @@ function buildDataByTime(data, transportUID, transportName){
             }
         });
     }
-    console.log(unorderedDataByTime)
-    return dataByTime = sortDataByTime(unorderedDataByTime);
+    //console.log(unorderedDataByTime)
+    dataByTime = sortDataByTime(unorderedDataByTime);
+    //console.log(dataByTime)
+    return dataByTime;
 }
 
 function sortDataByTime(unsorted){//takes the unsorted data by time array and sorts by the time key of each object
@@ -114,7 +182,7 @@ function sortDataByTime(unsorted){//takes the unsorted data by time array and so
 
 async function buildNotations(transports){
     document.querySelector('.buttons .cues').innerHTML = '';
-    console.log(transports)
+    //console.log(transports)
     let topHtml = ''
     let selHtml = ''
     for(let i = 0; i<transports.length; i++){
@@ -141,8 +209,15 @@ function setEnableState(state, transportUID){
             transport.enabled = state;
         }
     });
-    console.log(transports)
+    //console.log(transports)
 }
+function enableTransports(){
+    transports.forEach(transport => {
+        transport.enabled = true;
+    });
+
+}
+
 function isEnabled(transportUID){
     isTrue = false;
     transports.forEach(transport => {
@@ -167,6 +242,7 @@ async function setIP(){
 }
 
 function renderDataByTime(dataByTime){
+    document.querySelector('.buttons .cues').innerHTML = '';
     let html = '';
     for(let i = 0; i<dataByTime.length; i++){
         time = Object.keys(dataByTime[i])[0];
@@ -202,6 +278,7 @@ function renderDataByTime(dataByTime){
         }        
     }
     document.querySelector('.buttons .cues').innerHTML += html;
+    //returnCheck = false  
 }
 
 /*async function createXMLSeq(){
@@ -362,7 +439,7 @@ function searchData(term){
 function filterData(){
     //if has any of these terms: 
     let filteredStoreByTime = []
-    console.log(filters)
+    //console.log(filters)
     StoredDataByTime.forEach(store => {
         let time = Object.keys(store);
         hasTerm = false
@@ -385,7 +462,7 @@ document.addEventListener('change', (event) => {
 
     else if(event.target.matches('#Search')){
         const term = event.target.value;
-        document.querySelector('.buttons .cues').innerHTML = ''
+        //document.querySelector('.buttons .cues').innerHTML = ''
         let sortedData = searchData(term);
         renderDataByTime(sortedData);
     }
@@ -395,7 +472,7 @@ document.addEventListener('keyup', (event) =>{
     if(event.target.matches('#Search')){
         const term = event.target.value;
         let sortedData = searchData(term);
-        document.querySelector('.buttons .cues').innerHTML = ''
+        //document.querySelector('.buttons .cues').innerHTML = ''
         renderDataByTime(sortedData);
     }
 });
@@ -415,7 +492,7 @@ document.addEventListener('click', (event) =>{
         }
         event.target.classList.toggle('enabled')
         event.target.classList.toggle('disabled')
-        document.querySelector('.buttons .cues').innerHTML = ''
+        //document.querySelector('.buttons .cues').innerHTML = ''
         renderDataByTime(filterData());
     }else if(event.target.matches('.filterToggle img') || event.target.matches('.filterToggle')){
         document.querySelectorAll('.filters')[0].classList.toggle('hidden')
@@ -439,7 +516,8 @@ document.addEventListener('click', (event) =>{
             if (event.target.matches('.enabled')) filters.midi = true;
             else filters.midi = false;
         }
-        console.log(filters)
+        setCookie('filters', filters, 7)
+        //console.log(filters)
         document.querySelector('.buttons .cues').innerHTML = ''
         const filteredDataByTime = filterData();
         renderDataByTime(filteredDataByTime);
@@ -457,7 +535,7 @@ document.addEventListener('click', (event) =>{
               }
             ]
         }
-        console.log(messagePre)
+        //console.log(messagePre)
         fetchPost("http://" + url + "/api/session/transport/gototime", messagePre);
     }else if(event.target.parentElement.matches('.timeBtn')){
         const messagePre = {
@@ -472,7 +550,7 @@ document.addEventListener('click', (event) =>{
               }
             ]
         }
-        console.log(messagePre, 'child')
+        //console.log(messagePre, 'child')
         fetchPost("http://" + url + "/api/session/transport/gototime", messagePre);
     }else if(event.target.parentElement.parentElement.matches('.timeBtn')){
         const messagePre = {
@@ -487,7 +565,7 @@ document.addEventListener('click', (event) =>{
               }
             ]
         }
-        console.log(messagePre, 'child.child')
+        //console.log(messagePre, 'child.child')
         fetchPost("http://" + url + "/api/session/transport/gototime", messagePre);
     }else if(event.target.parentElement.parentElement.parentElement.matches('.timeBtn')){
         const messagePre = {
@@ -502,7 +580,7 @@ document.addEventListener('click', (event) =>{
               }
             ]
         }
-        console.log(messagePre, 'child.child.child')
+        //console.log(messagePre, 'child.child.child')
         fetchPost("http://" + url + "/api/session/transport/gototime", messagePre);
     }else if(event.target.matches('.transButton#play img') || event.target.matches('.transButton#play')){
         const dropdown = document.querySelector('#transportsDropdown')
