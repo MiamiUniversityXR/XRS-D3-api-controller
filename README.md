@@ -17,4 +17,4 @@ Get Nodejs installed on your computer from [Node JS](https://nodejs.org/en) (LTS
 
 ## Rights
 
-XR Studios gives you the right to use this, but not to distribute or sell this program. XR Studios also does not provide this software with any warranty and accepts no liability for your use of the program. XR Studios reserves all rights to this software.
+Forked with permission from XR Studios and re-released under the GPL3 liscence. Currently maintained by Nate Wilkens at Miami University
